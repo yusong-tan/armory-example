@@ -18,8 +18,6 @@ from armory.utils.config_loading import (
     load_model,
     load_attack,
     load_adversarial_dataset,
-    load_defense_wrapper,
-    load_defense_internal,
 )
 from armory.utils import metrics
 from armory.scenarios.base import Scenario
@@ -120,23 +118,14 @@ class AudioSpectrogramClassificationTask(Scenario):
         logger.info("Running inference on benign test examples...")
         metrics_logger = metrics.MetricsLogger.from_config(config["metric"])
 
-#        cnt = 0
-#        benign_accuracies = []
         for x, y in tqdm(test_data_generator, desc="Benign"):
             x_seg, y_seg = segment(x, y, n_tbins)
             y_pred = classifier.predict(x_seg)
             metrics_logger.update_task(y_seg, y_pred)
-#            benign_accuracies.extend(task_metric(y_seg, y_pred))
-#            cnt += len(y_seg)
-            break
         metrics_logger.log_task()
-
-#        benign_accuracy = sum(benign_accuracies) / cnt
-#        logger.info(f"Accuracy on benign test examples: {benign_accuracy:.2%}")
 
         # Evaluate the ART classifier on adversarial test examples
         logger.info("Generating / testing adversarial examples...")
-        # NEW
         attack_config = config["attack"]
         attack_type = attack_config.get("type")
         targeted = bool(attack_config.get("kwargs", {}).get("targeted"))
@@ -158,7 +147,6 @@ class AudioSpectrogramClassificationTask(Scenario):
                 preprocessing_fn=preprocessing_fn,
             )
         for x, y in tqdm(test_data_generator, desc="Attack"):
-            logger.info(y)
             if attack_type == "preloaded":
                 x, x_adv = x
                 if targeted:
@@ -186,25 +174,3 @@ class AudioSpectrogramClassificationTask(Scenario):
             metrics_logger.update_perturbation(x, x_adv)
         metrics_logger.log_task(adversarial=True, targeted=targeted)
         return metrics_logger.results()
-
-        '''
-        ## ORIG
-        cnt = 0
-        adversarial_accuracies = []
-        for x, y in tqdm(test_data_generator, desc="Attack"):
-            x_seg, y_seg = segment(x, y, n_tbins)
-            x_adv = attack.generate(x=x_seg)
-            y_pred = classifier.predict(x_adv)
-            adversarial_accuracies.extend(task_metric(y_seg, y_pred))
-            cnt += len(y_seg)
-        adversarial_accuracy = sum(adversarial_accuracies) / cnt
-        logger.info(
-            f"Accuracy on adversarial test examples: {adversarial_accuracy:.2%}"
-        )
-
-        results = {
-            "mean_benign_accuracy": benign_accuracy,
-            "mean_adversarial_accuracy": adversarial_accuracy,
-        }
-        return results
-        '''
