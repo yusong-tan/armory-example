@@ -118,18 +118,21 @@ class AudioSpectrogramClassificationTask(Scenario):
         )
 
         logger.info("Running inference on benign test examples...")
+        metrics_logger = metrics.MetricsLogger.from_config(config["metric"])
 
-        cnt = 0
-        benign_accuracies = []
+#        cnt = 0
+#        benign_accuracies = []
         for x, y in tqdm(test_data_generator, desc="Benign"):
             x_seg, y_seg = segment(x, y, n_tbins)
             y_pred = classifier.predict(x_seg)
-            benign_accuracies.extend(task_metric(y_seg, y_pred))
-            cnt += len(y_seg)
+            metrics_logger.update_task(y_seg, y_pred)
+#            benign_accuracies.extend(task_metric(y_seg, y_pred))
+#            cnt += len(y_seg)
             break
+        metrics_logger.log_task()
 
-        benign_accuracy = sum(benign_accuracies) / cnt
-        logger.info(f"Accuracy on benign test examples: {benign_accuracy:.2%}")
+#        benign_accuracy = sum(benign_accuracies) / cnt
+#        logger.info(f"Accuracy on benign test examples: {benign_accuracy:.2%}")
 
         # Evaluate the ART classifier on adversarial test examples
         logger.info("Generating / testing adversarial examples...")
