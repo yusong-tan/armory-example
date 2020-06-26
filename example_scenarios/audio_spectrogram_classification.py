@@ -123,21 +123,63 @@ class AudioSpectrogramClassificationTask(Scenario):
             y_pred = classifier.predict(x_seg)
             benign_accuracies.extend(task_metric(y_seg, y_pred))
             cnt += len(y_seg)
+            break
 
         benign_accuracy = sum(benign_accuracies) / cnt
         logger.info(f"Accuracy on benign test examples: {benign_accuracy:.2%}")
 
         # Evaluate the ART classifier on adversarial test examples
         logger.info("Generating / testing adversarial examples...")
-        attack = load_attack(config["attack"], classifier)
+        # NEW
+        attack_config = config["attack"]
+        attack_type = attack_config.get("type")
+        targeted = bool(attack_config.get("kwargs", {}).get("targeted"))
+        if targeted and attack_config.get("use_label"):
+            raise ValueError("Targeted attacks cannot have 'use_label'")
+        if attack_type == "preloaded":
+            test_data_generator = load_adversarial_dataset(
+                attack_config,
+                epochs=1,
+                split_type="adversarial",
+                preprocessing_fn=predict_preprocessing_fn,
+            )
+        else:
+            attack = load_attack(attack_config, classifier)
+            test_data_generator = load_dataset(
+                config["dataset"],
+                epochs=1,
+                split_type="test",
+                preprocessing_fn=predict_preprocessing_fn,
+            )
+        for x, y in tqdm(test_data_generator, desc="Attack"):
+            if attack_type == "preloaded":
+                x, x_adv = x
+                if targeted:
+                    y, y_target = y
+                x, y = segment(x, y, n_tbins)
+                x_adv, y_target = segment(x_adv, y_target, n_tbins)
+            elif attack_config.get("use_label"):
+                x, y = segment(x, y, n_tbins)
+                x_adv = attack.generate(x=x, y=y)
+            elif targeted:
+                raise NotImplementedError("Requires generation of target labels")
+                # x_adv = attack.generate(x=x, y=y_target)
+            else:
+                x, _ = segment(x, y, n_tbins)
+                x_adv = attack.generate(x=x)
 
-        test_data_generator = load_dataset(
-            config["dataset"],
-            epochs=1,
-            split_type="test",
-            preprocessing_fn=preprocessing_fn,
-        )
+            y_pred_adv = classifier.predict(x_adv)
+            if targeted:
+                # NOTE: does not remove data points where y == y_target
+                metrics_logger.update_task(y_target, y_pred_adv, adversarial=True)
+            else:
+                metrics_logger.update_task(y, y_pred_adv, adversarial=True)
+            metrics_logger.update_perturbation(x, x_adv)
+        metrics_logger.log_task(adversarial=True, targeted=targeted)
+        return metrics_logger.results()
 
+        '''
+        ## ORIG
         cnt = 0
         adversarial_accuracies = []
         for x, y in tqdm(test_data_generator, desc="Attack"):
@@ -156,3 +198,4 @@ class AudioSpectrogramClassificationTask(Scenario):
             "mean_adversarial_accuracy": adversarial_accuracy,
         }
         return results
+        '''
