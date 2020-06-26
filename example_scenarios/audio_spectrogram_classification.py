@@ -17,6 +17,9 @@ from armory.utils.config_loading import (
     load_dataset,
     load_model,
     load_attack,
+    load_adversarial_dataset,
+    load_defense_wrapper,
+    load_defense_internal,
 )
 from armory.utils import metrics
 from armory.scenarios.base import Scenario
