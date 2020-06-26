@@ -155,12 +155,15 @@ class AudioSpectrogramClassificationTask(Scenario):
                 preprocessing_fn=preprocessing_fn,
             )
         for x, y in tqdm(test_data_generator, desc="Attack"):
+            logger.info(y)
             if attack_type == "preloaded":
                 x, x_adv = x
                 if targeted:
                     y, y_target = y
+                    x_adv, y_target = segment(x_adv, y_target, n_tbins)
+                else:
+                    x_adv, _ = segment(x_adv, y, n_tbins)
                 x, y = segment(x, y, n_tbins)
-                x_adv, y_target = segment(x_adv, y_target, n_tbins)
             elif attack_config.get("use_label"):
                 x, y = segment(x, y, n_tbins)
                 x_adv = attack.generate(x=x, y=y)
