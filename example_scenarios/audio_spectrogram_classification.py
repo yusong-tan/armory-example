@@ -144,7 +144,7 @@ class AudioSpectrogramClassificationTask(Scenario):
                 attack_config,
                 epochs=1,
                 split_type="adversarial",
-                preprocessing_fn=predict_preprocessing_fn,
+                preprocessing_fn=preprocessing_fn,
             )
         else:
             attack = load_attack(attack_config, classifier)
@@ -152,7 +152,7 @@ class AudioSpectrogramClassificationTask(Scenario):
                 config["dataset"],
                 epochs=1,
                 split_type="test",
-                preprocessing_fn=predict_preprocessing_fn,
+                preprocessing_fn=preprocessing_fn,
             )
         for x, y in tqdm(test_data_generator, desc="Attack"):
             if attack_type == "preloaded":
